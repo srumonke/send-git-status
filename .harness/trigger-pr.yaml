@@ -1,0 +1,39 @@
+# PR webhook trigger. Custom check names only apply to PR-triggered builds, so
+# the demo needs this — a manual run falls back to "Pipeline Name - Stage Name"
+# for every stage and the custom name won't show.
+trigger:
+  name: pr-open-or-update
+  identifier: pr_open_or_update
+  enabled: true
+  orgIdentifier: default
+  projectIdentifier: Cint
+  pipelineIdentifier: send_git_status_demo
+  source:
+    type: Webhook
+    spec:
+      type: Github
+      spec:
+        type: PullRequest
+        spec:
+          connectorRef: account.github_srumonke
+          autoAbortPreviousExecutions: true
+          payloadConditions:
+            - key: targetBranch
+              operator: Equals
+              value: main
+          headerConditions: []
+          repoName: send-git-status
+          actions:
+            - Open
+            - Reopen
+            - Synchronize
+  inputYaml: |
+    pipeline:
+      identifier: send_git_status_demo
+      properties:
+        ci:
+          codebase:
+            build:
+              type: PR
+              spec:
+                number: <+trigger.prNumber>

@@ -1,0 +1,12 @@
+{
+  "name": "send-git-status-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Demo app for the Harness CI sendGitStatus stage setting",
+  "main": "app/index.js",
+  "scripts": {
+    "test": "node --test app/",
+    "build": "mkdir -p build && cp -r app build/"
+  },
+  "license": "UNLICENSED"
+}

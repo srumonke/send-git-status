@@ -1,0 +1,155 @@
+# Demo: the four states of `sendGitStatus` on a Harness CI stage.
+#
+# Open a PR against main and you should see TWO checks, not four:
+#
+#   send-git-status-demo - harness/ci/build   <- stage 1, custom name
+#   send-git-status-demo - unit tests         <- stage 2, legacy default
+#
+# Stages 3 and 4 post nothing. See README.md for the reasoning.
+#
+# Requires feature flag PIPE_ENABLE_SEND_STATUS_TO_GIT on the account.
+pipeline:
+  name: send-git-status-demo
+  identifier: send_git_status_demo
+  projectIdentifier: Cint
+  orgIdentifier: default
+  properties:
+    ci:
+      codebase:
+        connectorRef: account.github_srumonke
+        repoName: send-git-status
+        build: <+input>
+
+  stages:
+    # ------------------------------------------------------------------------
+    # 1. CUSTOM NAME. Harness Pipeline service posts the check for PR builds
+    #    using our name; CI detects the custom config and skips its own update,
+    #    so there's no duplicate.
+    #
+    #    Posts as: "send-git-status-demo - harness/ci/build"
+    #    The "send-git-status-demo - " prefix is NOT removable. A bare
+    #    "harness/ci/build" context is not achievable today.
+    # ------------------------------------------------------------------------
+    - stage:
+        name: build
+        identifier: build
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: build bundle
+                  identifier: build_bundle
+                  spec:
+                    shell: Sh
+                    image: node:20
+                    command: |
+                      set -eu
+                      npm run build
+                      echo "built $(find build -type f | wc -l) files"
+        advanced:
+          sendGitStatus:
+            enabled: true
+            name: harness/ci/build
+
+    # ------------------------------------------------------------------------
+    # 2. NOT CONFIGURED — the trap. No `sendGitStatus` block at all, which is
+    #    NOT the same as disabled. This is the legacy default: CI posts
+    #    "Pipeline Name - Stage Name" for every build type.
+    #
+    #    Posts as: "send-git-status-demo - unit tests"
+    #
+    #    This is why a stage whose toggle you left blank in a stage template
+    #    still shows up as a check on the PR. A blank toggle writes nothing to
+    #    YAML, and nothing means "default", not "off".
+    # ------------------------------------------------------------------------
+    - stage:
+        name: unit tests
+        identifier: unit_tests
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: test
+                  identifier: test
+                  spec:
+                    shell: Sh
+                    image: node:20
+                    command: npm test
+
+    # ------------------------------------------------------------------------
+    # 3. EXPLICITLY DISABLED — the fix. No status sent, for any build type.
+    #    This stage does not appear as a check and cannot gate a merge.
+    #
+    #    Use this for stages that aren't really builds: a dev deploy that just
+    #    copies a .zip to S3, a notification, a smoke test you don't want
+    #    blocking merges.
+    # ------------------------------------------------------------------------
+    - stage:
+        name: deploy dev
+        identifier: deploy_dev
+        type: CI
+        spec:
+          cloneCodebase: false
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: fake s3 copy
+                  identifier: fake_s3_copy
+                  spec:
+                    shell: Sh
+                    image: alpine:3.20
+                    command: echo "pretend we copied build.zip to s3://dev-bucket/"
+        advanced:
+          sendGitStatus:
+            enabled: false
+
+    # ------------------------------------------------------------------------
+    # 4. NON-CI STAGE — the structural fix. Build status is only exported for
+    #    CI stages, so a Custom stage never appears as a check regardless of
+    #    `sendGitStatus`. If a stage isn't a build, this is cleaner than
+    #    disabling status on a CI stage that shouldn't have been CI.
+    # ------------------------------------------------------------------------
+    - stage:
+        name: notify
+        identifier: notify
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: ShellScript
+                  name: notify
+                  identifier: notify
+                  timeout: 5m
+                  spec:
+                    shell: Bash
+                    onDelegate: false
+                    source:
+                      type: Inline
+                      spec:
+                        script: echo "pipeline done — this stage posts no check"
