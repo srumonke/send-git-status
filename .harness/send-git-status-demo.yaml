@@ -2,8 +2,8 @@
 #
 # Open a PR against main and you should see TWO checks, not four:
 #
-#   send-git-status-demo - harness/ci/build   <- stage 1, custom name
-#   send-git-status-demo - unit tests         <- stage 2, legacy default
+#   send_git_status_demo-harness/ci/build   <- stage 1, custom name
+#   send_git_status_demo-unit_tests         <- stage 2, legacy default
 #
 # Stages 3 and 4 post nothing. See README.md for the reasoning.
 #
@@ -26,14 +26,19 @@ pipeline:
     #    using our name; CI detects the custom config and skips its own update,
     #    so there's no duplicate.
     #
-    #    Posts as: "send-git-status-demo - harness/ci/build"
-    #    The "send-git-status-demo - " prefix is NOT removable. A bare
-    #    "harness/ci/build" context is not achievable today.
+    #    Posts as: send_git_status_demo-harness/ci/build
+    #    Format is ${pipelineIdentifier}-${name} — identifiers, no spaces. The
+    #    prefix is NOT removable; a bare "harness/ci/build" is not achievable.
     # ------------------------------------------------------------------------
     - stage:
         name: build
         identifier: build
         type: CI
+        # sendGitStatus is a SIBLING of spec, NOT nested under `advanced:`.
+        # The docs show it under `advanced:` — that is stored but silently ignored.
+        sendGitStatus:
+          enabled: true
+          name: harness/ci/build
         spec:
           cloneCodebase: true
           platform:
@@ -55,17 +60,13 @@ pipeline:
                       set -eu
                       npm run build
                       echo "built $(find build -type f | wc -l) files"
-        advanced:
-          sendGitStatus:
-            enabled: true
-            name: harness/ci/build
 
     # ------------------------------------------------------------------------
     # 2. NOT CONFIGURED — the trap. No `sendGitStatus` block at all, which is
     #    NOT the same as disabled. This is the legacy default: CI posts
-    #    "Pipeline Name - Stage Name" for every build type.
+    #    ${pipelineIdentifier}-${stageIdentifier} for every build type.
     #
-    #    Posts as: "send-git-status-demo - unit tests"
+    #    Posts as: send_git_status_demo-unit_tests
     #
     #    This is why a stage whose toggle you left blank in a stage template
     #    still shows up as a check on the PR. A blank toggle writes nothing to
@@ -106,6 +107,8 @@ pipeline:
         name: deploy dev
         identifier: deploy_dev
         type: CI
+        sendGitStatus:
+          enabled: false
         spec:
           cloneCodebase: false
           platform:
@@ -124,9 +127,6 @@ pipeline:
                     shell: Sh
                     image: alpine:3.20
                     command: echo "pretend we copied build.zip to s3://dev-bucket/"
-        advanced:
-          sendGitStatus:
-            enabled: false
 
     # ------------------------------------------------------------------------
     # 4. NON-CI STAGE — the structural fix. Build status is only exported for
