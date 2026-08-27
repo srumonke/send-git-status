@@ -1,6 +1,6 @@
 # send-git-status
 
-Demo repo for the Harness CI **Send status to Git** (`sendGitStatus`) stage setting test.
+Demo repo for the Harness CI **Send status to Git** (`sendGitStatus`) stage setting test2.
 
 Everything below was verified by running it — see [Verified results](#verified-results).
 
