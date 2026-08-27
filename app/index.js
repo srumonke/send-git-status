@@ -9,3 +9,9 @@ function greet(name) {
 }
 
 module.exports = { greet };
+
+// Touched to trigger the demo pipeline.
+
+// Retest with sendGitStatus at correct YAML path.
+
+// Final retest: deploy_dev suppression.
